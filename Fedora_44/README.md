@@ -1,73 +1,75 @@
 # Fedora 44 Post-Install Toolkit
 
-Automated, idempotent post-installation setup and diagnostic scripts specifically tailored for Fedora and Fedora-based distributions.
+Automated, idempotent post-installation setup, Btrfs snapshot management, memory tuning, and read-only diagnostic scripts for Fedora 44 and Fedora-based distributions.
 
 ## Directory Structure
 
 ```text
 Fedora_44/
-├── fedora-health-check-full.sh  # Comprehensive, read-only system health check
-├── snapper-setup-v2.sh          # Snapper root snapshots, DNF5 plugin, Btrfs Assistant & grub-btrfs
-├── zram-swap-setup.sh           # 12 GiB zRAM (zstd) + 32 GiB swapfile (Btrfs/ext4/xfs aware) + sysctl tuning
+├── zram-swap-setup.sh          # Filesystem-aware (Btrfs subvolume + SELinux) zRAM & swap setup
+├── snapper-setup-v2.sh          # Snapper Btrfs snapshots, DNF5 plugin, Btrfs Assistant & grub-btrfs
+├── fedora-health-check-full.sh  # Comprehensive, read-only system health and hardware diagnostic check
 └── README.md
 ```
 
 ## Features Overview
 
-### zram-swap-setup.sh (Memory & Swap)
-- **zRAM Configuration**: 12 GiB (12288 MiB) zRAM device using `zstd` compression and priority 100 via `zram-generator`.
-- **Swapfile Management**: 32 GiB swapfile with priority 10 (hosted on a dedicated `/swap` subvolume on Btrfs with SELinux `swapfile_t` context).
-- **Lazy DNF Refresh**: Skips package metadata refresh (`dnf makecache`) when all required RPM dependencies are already present.
-- **Kernel Verification**: Inspects `/sys/block/zram0/comp_algorithm` in verify mode to confirm active `zstd` kernel backend execution.
-- **Kernel Tuning**: Optimizes `vm.swappiness=60`, `vm.vfs_cache_pressure=50`, dirty ratios, and `vm.page-cluster=0`.
+### `zram-swap-setup.sh` (Memory & Swap Management)
+- **zRAM Configuration**: Provisions 12 GiB (12288 MiB) zRAM using `zstd` compression and priority 100 via `zram-generator`.
+- **Swapfile Management**: Creates a 32 GiB swapfile (priority 10) on a dedicated `/swap` Btrfs subvolume to exclude swap data from root snapshots. Applies proper SELinux `swapfile_t` context.
+- **Lazy Metadata Refresh**: Skips `dnf makecache` when required packages are already installed.
+- **Kernel Tuning**: Optimizes `vm.swappiness=60`, `vm.vfs_cache_pressure=50`, dirty memory ratios, and `vm.page-cluster=0`.
+- **Verification Mode**: Run with `--verify` to inspect active compression backend (`/sys/block/zram0/comp_algorithm`) and swap priority without root privileges.
 
-### snapper-setup-v2.sh (Btrfs Snapshots & DNF5 Integration)
-- **Snapper Configuration**: Automates root `/` Snapper subvolume setup and configures timeline/cleanup retention policies.
-- **DNF5 Snapshot Integration**: Provisions custom pre/post transaction hook scripts (`/usr/local/sbin/snapper-dnf-pre.sh`, etc.), including logic to truncate long DNF commands to 75 characters for cleaner logs.
-- **Btrfs Assistant**: Installs GUI utility for managing snapshots and subvolumes.
-- **grub-btrfs & Boot Mode Detection**: Prompts before enabling the third-party `kylegospo/grub-btrfs` COPR repository, detects UEFI vs Legacy BIOS boot modes, and sets up a daily GRUB regeneration timer.
-- **Functional Testing**: Automatically creates and verifies a baseline snapshot upon installation.
-- **Summary Dashboard**: Displays a high-visibility health check report upon completion.
+### `snapper-setup-v2.sh` (Btrfs Snapshots & DNF5 Integration)
+- **Snapper Automation**: Configures root `/` Snapper subvolume with automated timeline cleanup policies.
+- **DNF5 Transaction Hooks**: Installs pre/post transaction hook scripts under `/usr/local/sbin` to automatically snapshot before package updates. Truncates long command lines to 75 characters for clean snapshot descriptions.
+- **Btrfs Assistant**: Installs GUI utility for visual management of snapshots and subvolumes.
+- **grub-btrfs & Boot Integration**: Configures COPR `kylegospo/grub-btrfs` integration, auto-detects UEFI vs Legacy BIOS, and sets up an optional daily GRUB menu regeneration timer for bootable hourly snapshots.
+- **Verification Mode**: Run with `--verify` to check Snapper configurations and active GRUB sync mechanisms.
 
-### fedora-health-check-full.sh (System Health Diagnostics)
-- **Read-Only Guarantees**: Makes no system modifications. Optionally installs missing diagnostic tools only if approved via prompt.
-- **Kernel & Boot**: Checks dmesg for errors/warnings, thermal throttling, microcode, systemd failed units, and boot time.
-- **Storage & Btrfs**: Verifies NVMe SMART health/temperature, Btrfs device errors, scrub status, zstd compression, and disk usage for `/` and `/home`.
-- **Snapshots & Integrations**: Verifies Snapper cadence, active timers, snapshot counts, DNF hook presence, and package integrity (`rpm -Va`).
-- **Hardware & Security**: Checks SELinux enforcing state/denials, Secure Boot, Battery health/cycles, and pending Firmware updates.
-- **Network & Resources**: Verifies DNS, routes, firewalld, listening ports, zRAM/Swap usage, and systemd journal size.
+### `fedora-health-check-full.sh` (System Health Diagnostics)
+- **Read-Only Guarantee**: Inspects system health without changing system settings, services, or configurations.
+- **Diagnostics Covered**: Kernel (`dmesg`) errors, systemd failed units, NVMe SMART health, Btrfs device errors/scrub/zstd status, Snapper cadence, DNF hooks, package integrity (`rpm -Va`), SELinux enforcing/denial logs, Secure Boot, firmware updates (`fwupdmgr`), firewalld, and resource utilization.
 
 ## Usage
 
 ### 1. Memory Management
 
 ```bash
+# Apply zRAM + swapfile setup
 sudo ./zram-swap-setup.sh
 
-# Standalone status verification mode
+# Verify active memory state
 ./zram-swap-setup.sh --verify
 ```
 
 ### 2. Btrfs Snapshots & DNF5 Integration
 
 ```bash
+# Interactive setup
 sudo ./snapper-setup-v2.sh
 
-# Non-interactive mode (automatically accepts COPR prompts)
+# Non-interactive setup (auto-accepts COPR prompt)
 sudo ./snapper-setup-v2.sh -y
 
-# Verification mode
+# Verify snapshot configuration and GRUB sync status
 ./snapper-setup-v2.sh --verify
 ```
 
 ### 3. System Health Check
 
 ```bash
+# Run comprehensive health diagnostic
 ./fedora-health-check-full.sh
 
-# Skip checks that require internet (firmware metadata, DNS)
+# Fast offline run (skips DNS & firmware metadata checks)
 ./fedora-health-check-full.sh --skip-network
 
-# Skip slow package integrity verification
+# Fast diagnostic run (skips RPM checksum verification)
 ./fedora-health-check-full.sh --skip-rpm-verify
 ```
+
+## License
+
+This project is released under the [MIT License](../LICENSE).
