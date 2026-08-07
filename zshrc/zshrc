@@ -1,0 +1,87 @@
+# ~/.zshrc
+
+# --- PATH ---
+export PATH="$HOME/.local/bin:$PATH"
+
+# --- Starship prompt ---
+eval "$(starship init zsh)"
+
+# --- zoxide ---
+eval "$(zoxide init zsh)"
+
+# --- eza (replaces ls) ---
+alias ls='eza --icons --group-directories-first'
+alias ll='eza -lah --icons --group-directories-first'
+alias la='eza -a --icons --group-directories-first'
+alias lt='eza --tree --icons --level=2'
+alias lg='eza -lah --icons --git --group-directories-first'
+
+# --- General aliases ---
+alias grep='grep --color=auto'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+alias gl='git log --oneline --graph --decorate'
+alias cz='cd $(zoxide query -i)'
+
+# --- bat: follow GNOME's light/dark mode live ---
+unalias cat 2>/dev/null
+cat() {
+  local scheme
+  scheme=$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null)
+  if [[ "$scheme" == *dark* ]]; then
+    BAT_THEME="Dracula" command bat "$@"
+  else
+    BAT_THEME="OneHalfLight" command bat "$@"
+  fi
+}
+export BAT_PAGING="never"
+
+
+# --- fzf enhancements (fd & bat integrations) ---
+if command -v fd >/dev/null 2>&1 || command -v fdfind >/dev/null 2>&1; then
+  export FZF_DEFAULT_COMMAND='fd --type f --strip-cwd-prefix --hidden --follow --exclude .git 2>/dev/null || fdfind --type f --strip-cwd-prefix --hidden --follow --exclude .git'
+  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+  export FZF_ALT_C_COMMAND='fd --type d --strip-cwd-prefix --hidden --follow --exclude .git 2>/dev/null || fdfind --type d --strip-cwd-prefix --hidden --follow --exclude .git'
+fi
+
+if command -v bat >/dev/null 2>&1 || command -v batcat >/dev/null 2>&1; then
+  export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border --preview "gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -q dark && BAT_THEME=OneHalfDark bat --color=always --style=numbers --line-range :500 {} 2>/dev/null || BAT_THEME=OneHalfLight bat --color=always --style=numbers --line-range :500 {} 2>/dev/null || cat {}"'
+fi
+
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+
+# --- Global real-time history ---
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=50000
+SAVEHIST=50000
+setopt SHARE_HISTORY          # Share history across all zsh sessions concurrently
+setopt INC_APPEND_HISTORY     # Append history immediately to file upon execution
+setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate entries from history
+setopt HIST_SAVE_NO_DUPS      # Do not write duplicate entries to file
+setopt HIST_REDUCE_BLANKS     # Remove extra blank spaces
+setopt HIST_IGNORE_SPACE      # Ignore commands starting with a space
+
+# --- Plugins (order matters: autosuggestions before syntax-highlighting) ---
+source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# --- fnm ---
+FNM_PATH="/home/arun/.local/share/fnm"
+if [ -d "$FNM_PATH" ]; then
+  export PATH="$FNM_PATH:$PATH"
+  eval "$(fnm env --shell zsh)"
+fi
+
+# Added by Antigravity CLI installer
+export PATH="/home/arun/.local/bin:$PATH"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/arun/google-cloud-sdk/path.zsh.inc' ]; then . '/home/arun/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/arun/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/arun/google-cloud-sdk/completion.zsh.inc'; fi
