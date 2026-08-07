@@ -8,3 +8,4 @@
 
 # OS cruft
 .DS_Store
+.obsidian/
