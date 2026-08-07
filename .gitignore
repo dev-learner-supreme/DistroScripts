@@ -1,0 +1,10 @@
+# Backups created by the scripts themselves
+*.bak.*
+*.log
+
+# Editor/IDE cruft
+.vscode/
+.idea/
+
+# OS cruft
+.DS_Store
